@@ -10,8 +10,25 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _index = 0;
+  int _lastNonCenterIndex = 0;
 
-  void _go(int i) => setState(() => _index = i);
+  void _go(int i) {
+    setState(() {
+      if (i != 2) _lastNonCenterIndex = i;
+      _index = i;
+    });
+  }
+
+  void _toggleCenter() {
+    setState(() {
+      if (_index == 2) {
+        _index = _lastNonCenterIndex;
+      } else {
+        _lastNonCenterIndex = _index;
+        _index = 2;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +79,10 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+/* ==========================
+   CURVED BOTTOM NAV + NOTCH
+   ========================== */
+
 class _BottomNav extends StatelessWidget {
   final int index;
   final ValueChanged<int> onTap;
@@ -70,72 +91,91 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF070B16),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.10))),
-      ),
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return SizedBox(
+      height: 96 + bottomInset,
       child: Stack(
-        alignment: Alignment.topCenter,
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _NavIcon(
-                icon: Icons.home,
-                label: "Нүүр",
-                active: index == 0,
-                onPressed: () => onTap(0),
+          // BAR with OUTWARD bump
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: ClipPath(
+              clipper: CenterBumpClipper(),
+              child: Container(
+                height: 86 + bottomInset,
+                padding: EdgeInsets.fromLTRB(18, 14, 18, 12 + bottomInset),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF070B16),
+                  border: Border(
+                    top: BorderSide(color: Colors.white.withOpacity(0.10)),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _NavIcon(
+                      icon: Icons.home_outlined,
+                      label: "Нүүр",
+                      active: index == 0,
+                      onPressed: () => onTap(0),
+                    ),
+                    _NavIcon(
+                      icon: Icons.grid_view_rounded,
+                      label: "Үйлчилгээ",
+                      active: index == 1,
+                      onPressed: () => onTap(1),
+                    ),
+
+                    // space for center button
+                    const SizedBox(width: 74),
+
+                    _NavIcon(
+                      icon: Icons.chat_bubble_outline,
+                      label: "Чат",
+                      active: index == 3,
+                      onPressed: () => onTap(3),
+                    ),
+                    _NavIcon(
+                      icon: Icons.person_outline,
+                      label: "Профайл",
+                      active: index == 4,
+                      onPressed: () => onTap(4),
+                    ),
+                  ],
+                ),
               ),
-              _NavIcon(
-                icon: Icons.grid_view_rounded,
-                label: "Үйлчилгээ",
-                active: index == 1,
-                onPressed: () => onTap(1),
-              ),
-              const SizedBox(width: 64),
-              _NavIcon(
-                icon: Icons.chat_bubble_outline,
-                label: "Чат",
-                active: index == 3,
-                onPressed: () => onTap(3),
-              ),
-              _NavIcon(
-                icon: Icons.person_outline,
-                label: "Профайл",
-                active: index == 4,
-                onPressed: () => onTap(4),
-              ),
-            ],
+            ),
           ),
 
-          // center scan button
+          // CENTER BUTTON
           Positioned(
-            top: -18,
+            bottom: 34 + bottomInset,
             child: InkWell(
               borderRadius: BorderRadius.circular(999),
               onTap: () => onTap(2),
               child: Container(
-                height: 62,
-                width: 62,
+                height: 66,
+                width: 66,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: const Color(0xFF0D4CFF),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF0D4CFF).withOpacity(0.35),
-                      blurRadius: 18,
+                      color: const Color(0xFF0D4CFF).withOpacity(0.40),
+                      blurRadius: 22,
                       offset: const Offset(0, 12),
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.qr_code_scanner,
+                child: const Icon(
+                  Icons.qr_code_rounded,
                   color: Colors.white,
                   size: 30,
-                  semanticLabel: "Scan",
                 ),
               ),
             ),
@@ -144,6 +184,59 @@ class _BottomNav extends StatelessWidget {
       ),
     );
   }
+}
+
+class CenterNotchClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    // tweak these 2 to match your screenshot
+    const double notchRadius = 38;
+    const double notchDepth = 28;
+
+    final Path path = Path();
+
+    // start top-left
+    path.moveTo(0, 0);
+
+    // go near center-left
+    path.lineTo(size.width / 2 - notchRadius * 1.7, 0);
+
+    // curve down into notch
+    path.quadraticBezierTo(
+      size.width / 2 - notchRadius,
+      0,
+      size.width / 2 - notchRadius,
+      notchDepth,
+    );
+
+    // rounded bottom notch arc
+    path.arcToPoint(
+      Offset(size.width / 2 + notchRadius, notchDepth),
+      radius: const Radius.circular(notchRadius),
+      clockwise: false,
+    );
+
+    // curve back up
+    path.quadraticBezierTo(
+      size.width / 2 + notchRadius,
+      0,
+      size.width / 2 + notchRadius * 1.7,
+      0,
+    );
+
+    // finish top-right
+    path.lineTo(size.width, 0);
+
+    // down and close
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
 
 class _NavIcon extends StatelessWidget {
@@ -161,13 +254,13 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = active ? Colors.white : Colors.white70;
+    final c = active ? Colors.white : Colors.white54;
 
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
@@ -176,7 +269,7 @@ class _NavIcon extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: active ? Colors.white : Colors.white60,
+                color: active ? Colors.white : Colors.white54,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -188,13 +281,17 @@ class _NavIcon extends StatelessWidget {
   }
 }
 
+/* ==========================
+   PAGES
+   ========================== */
+
 class _StudentHomeScreen extends StatelessWidget {
   const _StudentHomeScreen();
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 140),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -288,7 +385,7 @@ class _ScanScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(
       child: Text(
-        "Scan / Student QR page",
+        "SCAN (later: student QR)",
         style: TextStyle(color: Colors.white),
       ),
     );
@@ -644,4 +741,45 @@ class _ServiceTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class CenterBumpClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+
+    const double bumpWidth = 140;
+    const double bumpHeight = 34;
+    const double curve = 24;
+
+    final center = w / 2;
+    final left = center - bumpWidth / 2;
+    final right = center + bumpWidth / 2;
+
+    final path = Path();
+
+    path.moveTo(0, 0);
+    path.lineTo(left, 0);
+
+    // convex bump up
+    path.cubicTo(
+      left + curve,
+      0,
+      center - curve,
+      -bumpHeight,
+      center,
+      -bumpHeight,
+    );
+    path.cubicTo(center + curve, -bumpHeight, right - curve, 0, right, 0);
+
+    path.lineTo(w, 0);
+    path.lineTo(w, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
